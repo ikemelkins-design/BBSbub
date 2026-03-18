@@ -1,6 +1,6 @@
 import { addThread, addReply } from "../../lib/db";
 
-export default function handler(req, res) {
+export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -17,7 +17,7 @@ export default function handler(req, res) {
         return res.status(400).json({ error: "Missing threadId for reply" });
       }
 
-      const newReply = addReply({
+      const newReply = await addReply({
         threadId: Number(threadId),
         content,
         author,
@@ -33,7 +33,11 @@ export default function handler(req, res) {
       return res.status(400).json({ error: "Missing title for thread" });
     }
 
-    const newThread = addThread({ title, content, author });
+    const newThread = await addThread({
+      title,
+      content,
+      author,
+    });
 
     return res.status(200).json({
       success: true,
@@ -41,6 +45,9 @@ export default function handler(req, res) {
     });
   } catch (error) {
     console.error("post.js error:", error);
-    return res.status(500).json({ error: "Failed to save post" });
+    return res.status(500).json({
+      error: "Failed to save post",
+      details: error?.message || "Unknown error",
+    });
   }
 }

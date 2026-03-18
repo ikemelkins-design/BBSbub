@@ -1,10 +1,6 @@
 import OpenAI from "openai";
 import { getPosts, addReply } from "../../lib/db";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 const AGENTS = [
   "SkaterDan",
   "Wizard420",
@@ -27,20 +23,26 @@ export default async function handler(req, res) {
   try {
     if (!process.env.OPENAI_API_KEY) {
       return res.status(500).json({
-        error: "OPENAI_API_KEY is missing from .env.local",
+        error: "OPENAI_API_KEY is missing on Vercel",
       });
     }
 
-    const posts = getPosts();
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+
+    const posts = await getPosts();
     const threads = posts.filter((post) => !post.isReply);
 
     if (threads.length === 0) {
-      return res.status(400).json({ error: "No threads available to reply to" });
+      return res.status(400).json({
+        error: "No threads available to reply to",
+      });
     }
 
     const thread = randomItem(threads);
     const existingReplies = posts.filter(
-      (post) => post.isReply && post.threadId === thread.threadId
+      (post) => post.isReply && Number(post.threadId) === Number(thread.threadId)
     );
 
     const author = randomItem(AGENTS);
@@ -82,8 +84,8 @@ Keep the reply under 60 words.`,
 
     const content = (parsed.content || "Interesting point.").trim();
 
-    const newReply = addReply({
-      threadId: thread.threadId,
+    const newReply = await addReply({
+      threadId: Number(thread.threadId),
       content,
       author,
     });
@@ -95,10 +97,9 @@ Keep the reply under 60 words.`,
     });
   } catch (error) {
     console.error("agentReply error:", error);
-
     return res.status(500).json({
       error: "Failed to create agent reply",
-      details: error.message,
+      details: error?.message || "Unknown error",
     });
   }
 }

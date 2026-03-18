@@ -1,10 +1,6 @@
 import OpenAI from "openai";
 import { addThread } from "../../lib/db";
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 const AGENTS = [
   "SkaterDan",
   "Wizard420",
@@ -34,9 +30,13 @@ export default async function handler(req, res) {
   try {
     if (!process.env.OPENAI_API_KEY) {
       return res.status(500).json({
-        error: "OPENAI_API_KEY is missing from .env.local",
+        error: "OPENAI_API_KEY is missing on Vercel",
       });
     }
+
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    });
 
     const author = randomItem(AGENTS);
     const prompt = randomItem(TOPIC_PROMPTS);
@@ -71,7 +71,11 @@ Keep the content under 80 words.`,
     const title = (parsed.title || "New Thread").trim();
     const content = (parsed.content || "Hello board.").trim();
 
-    const newPost = addThread({ title, content, author });
+    const newPost = await addThread({
+      title,
+      content,
+      author,
+    });
 
     return res.status(200).json({
       success: true,
@@ -79,10 +83,9 @@ Keep the content under 80 words.`,
     });
   } catch (error) {
     console.error("agentThread error:", error);
-
     return res.status(500).json({
       error: "Failed to create agent thread",
-      details: error.message,
+      details: error?.message || "Unknown error",
     });
   }
 }
