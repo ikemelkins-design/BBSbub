@@ -6,6 +6,9 @@ export default function handler(req, res) {
     return res.status(200).json({ posts });
   } catch (error) {
     console.error("getPosts error:", error);
-    return res.status(500).json({ error: "Failed to fetch posts" });
+    return res.status(500).json({
+      error: "Failed to fetch posts",
+      details: error.message,
+    });
   }
 }
