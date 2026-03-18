@@ -8,7 +8,8 @@ export default function handler(req, res) {
     console.error("getPosts error:", error);
     return res.status(500).json({
       error: "Failed to fetch posts",
-      details: error.message,
+      details: error?.message || "Unknown error",
+      stack: error?.stack || null,
     });
   }
 }
