@@ -15,22 +15,74 @@ export default function BoardPage() {
       const res = await fetch("/api/getPosts");
       const text = await res.text();
 
-      if (!res.ok) {
-        console.error("getPosts failed:", text);
-        alert("getPosts failed. Check terminal.");
-        return;
+      let data = {};
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { posts: [] };
       }
 
-      const data = JSON.parse(text);
-      setPosts(data.posts || []);
+      if (!res.ok) {
+        console.error("getPosts failed:", data);
+        alert(data.error || "getPosts failed");
+        return [];
+      }
+
+      const posts = data.posts || [];
+      setPosts(posts);
+      return posts;
     } catch (error) {
       console.error("Failed to fetch posts:", error);
-      alert("Failed to fetch posts. Check terminal.");
+      alert("Failed to fetch posts.");
+      return [];
+    }
+  }
+
+  async function maybeAutoPopulate(currentPosts) {
+    try {
+      const threads = currentPosts.filter((post) => !post.isReply);
+
+      if (threads.length === 0) {
+        const roll = Math.random();
+
+        if (roll < 0.7) {
+          const res = await fetch("/api/agentThread", { method: "POST" });
+          return res.ok;
+        }
+
+        return false;
+      }
+
+      const roll = Math.random();
+
+      if (roll < 0.2) {
+        const res = await fetch("/api/agentThread", { method: "POST" });
+        return res.ok;
+      }
+
+      if (roll < 0.6) {
+        const res = await fetch("/api/agentReply", { method: "POST" });
+        return res.ok;
+      }
+
+      return false;
+    } catch (error) {
+      console.error("Auto populate error:", error);
+      return false;
     }
   }
 
   useEffect(() => {
-    fetchPosts();
+    async function initBoard() {
+      const currentPosts = await fetchPosts();
+      const changed = await maybeAutoPopulate(currentPosts);
+
+      if (changed) {
+        await fetchPosts();
+      }
+    }
+
+    initBoard();
   }, []);
 
   async function handleSubmit(e) {
@@ -53,26 +105,35 @@ export default function BoardPage() {
 
       const text = await res.text();
 
+      let data = {};
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { error: text };
+      }
+
       if (!res.ok) {
-        console.error("/api/post failed:", text);
-        alert("Post failed. Check terminal.");
+        console.error("/api/post failed:", data);
+        alert(
+          data.details
+            ? `${data.error}\n\n${data.details}`
+            : data.error || "Post failed"
+        );
         setLoading(false);
         return;
       }
-
-      const data = JSON.parse(text);
 
       if (data.success) {
         setTitle("");
         setContent("");
         setAuthor("");
-        fetchPosts();
+        await fetchPosts();
       } else {
         alert(data.error || "Failed to create post");
       }
     } catch (error) {
       console.error("Submit error:", error);
-      alert("Something went wrong");
+      alert(error.message || "Something went wrong");
     }
 
     setLoading(false);
@@ -102,26 +163,35 @@ export default function BoardPage() {
 
       const text = await res.text();
 
-      if (!res.ok) {
-        console.error("Reply failed:", text);
-        alert("Reply failed. Check terminal.");
-        return;
+      let data = {};
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { error: text };
       }
 
-      const data = JSON.parse(text);
+      if (!res.ok) {
+        console.error("Reply failed:", data);
+        alert(
+          data.details
+            ? `${data.error}\n\n${data.details}`
+            : data.error || "Reply failed"
+        );
+        return;
+      }
 
       if (data.success) {
         setReplyForms((prev) => ({
           ...prev,
           [threadId]: { content: "", author: "" },
         }));
-        fetchPosts();
+        await fetchPosts();
       } else {
         alert(data.error || "Failed to create reply");
       }
     } catch (error) {
       console.error("Reply submit error:", error);
-      alert("Something went wrong");
+      alert(error.message || "Something went wrong");
     }
   }
 
@@ -135,23 +205,32 @@ export default function BoardPage() {
 
       const text = await res.text();
 
+      let data = {};
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { error: text };
+      }
+
       if (!res.ok) {
-        console.error("/api/agentThread failed:", text);
-        alert("Agent thread failed. Check terminal.");
+        console.error("/api/agentThread failed:", data);
+        alert(
+          data.details
+            ? `${data.error}\n\n${data.details}`
+            : data.error || "Agent thread failed"
+        );
         setAgentLoading(false);
         return;
       }
 
-      const data = JSON.parse(text);
-
       if (data.success) {
-        fetchPosts();
+        await fetchPosts();
       } else {
         alert(data.error || "Failed to create agent thread");
       }
     } catch (error) {
       console.error("Agent thread error:", error);
-      alert("Something went wrong");
+      alert(error.message || "Something went wrong");
     }
 
     setAgentLoading(false);
@@ -167,23 +246,32 @@ export default function BoardPage() {
 
       const text = await res.text();
 
+      let data = {};
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { error: text };
+      }
+
       if (!res.ok) {
-        console.error("/api/agentReply failed:", text);
-        alert("Agent reply failed. Check terminal.");
+        console.error("/api/agentReply failed:", data);
+        alert(
+          data.details
+            ? `${data.error}\n\n${data.details}`
+            : data.error || "Agent reply failed"
+        );
         setAgentReplyLoading(false);
         return;
       }
 
-      const data = JSON.parse(text);
-
       if (data.success) {
-        fetchPosts();
+        await fetchPosts();
       } else {
         alert(data.error || "Failed to create agent reply");
       }
     } catch (error) {
       console.error("Agent reply error:", error);
-      alert("Something went wrong");
+      alert(error.message || "Something went wrong");
     }
 
     setAgentReplyLoading(false);
@@ -200,23 +288,32 @@ export default function BoardPage() {
 
       const text = await res.text();
 
+      let data = {};
+      try {
+        data = JSON.parse(text);
+      } catch {
+        data = { error: text };
+      }
+
       if (!res.ok) {
-        console.error("/api/clearBoard failed:", text);
-        alert("Clear board failed. Check terminal.");
+        console.error("/api/clearBoard failed:", data);
+        alert(
+          data.details
+            ? `${data.error}\n\n${data.details}`
+            : data.error || "Clear board failed"
+        );
         return;
       }
 
-      const data = JSON.parse(text);
-
       if (data.success) {
         setReplyForms({});
-        fetchPosts();
+        await fetchPosts();
       } else {
         alert(data.error || "Failed to clear board");
       }
     } catch (error) {
       console.error("Clear board error:", error);
-      alert("Something went wrong");
+      alert(error.message || "Something went wrong");
     }
   }
 
@@ -343,7 +440,8 @@ export default function BoardPage() {
         ) : (
           threads.map((thread) => {
             const replies = posts.filter(
-              (post) => post.isReply && post.threadId === thread.threadId
+              (post) =>
+                post.isReply && Number(post.threadId) === Number(thread.threadId)
             );
 
             return (
