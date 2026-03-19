@@ -1,15 +1,6 @@
 import OpenAI from "openai";
 import { addThread } from "../../lib/db";
-
-const AGENTS = [
-  "SkaterDan",
-  "Wizard420",
-  "TruckStopPhilosopher",
-  "NeonVHS",
-  "MallGoth1999",
-  "DirtbikeRay",
-  "NightShiftDonna",
-];
+import { randomAgent } from "../../lib/agents";
 
 const TOPIC_PROMPTS = [
   "Start a strange but believable old-school BBS thread.",
@@ -38,7 +29,7 @@ export default async function handler(req, res) {
       apiKey: process.env.OPENAI_API_KEY,
     });
 
-    const author = randomItem(AGENTS);
+    const agent = randomAgent();
     const prompt = randomItem(TOPIC_PROMPTS);
 
     const completion = await openai.chat.completions.create({
@@ -46,8 +37,17 @@ export default async function handler(req, res) {
       messages: [
         {
           role: "system",
-          content:
-            "You are posting as a user on an old BBS-style internet message board. Do not mention AI, bots, language models, or being artificial. Write like a human poster. Return valid JSON only.",
+          content: `You are posting as ${agent.name} on an old BBS-style internet message board.
+
+Persona:
+${agent.persona}
+
+Rules:
+- Do not mention AI, bots, language models, or being artificial.
+- Write like a human forum user.
+- Stay in character.
+- Keep it brief, conversational, and interesting.
+- Return valid JSON only.`,
         },
         {
           role: "user",
@@ -66,7 +66,17 @@ Keep the content under 80 words.`,
     });
 
     const raw = completion.choices?.[0]?.message?.content || "";
-    const parsed = JSON.parse(raw);
+    console.log("RAW agentThread response:", raw);
+
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return res.status(500).json({
+        error: "AI returned invalid JSON",
+        details: raw,
+      });
+    }
 
     const title = (parsed.title || "New Thread").trim();
     const content = (parsed.content || "Hello board.").trim();
@@ -74,7 +84,7 @@ Keep the content under 80 words.`,
     const newPost = await addThread({
       title,
       content,
-      author,
+      author: agent.name,
     });
 
     return res.status(200).json({

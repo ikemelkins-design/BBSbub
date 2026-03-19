@@ -1,19 +1,6 @@
 import OpenAI from "openai";
 import { getPosts, addReply } from "../../lib/db";
-
-const AGENTS = [
-  "SkaterDan",
-  "Wizard420",
-  "TruckStopPhilosopher",
-  "NeonVHS",
-  "MallGoth1999",
-  "DirtbikeRay",
-  "NightShiftDonna",
-];
-
-function randomItem(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
+import { randomAgent } from "../../lib/agents";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -40,12 +27,12 @@ export default async function handler(req, res) {
       });
     }
 
-    const thread = randomItem(threads);
+    const thread = threads[Math.floor(Math.random() * threads.length)];
     const existingReplies = posts.filter(
       (post) => post.isReply && Number(post.threadId) === Number(thread.threadId)
     );
 
-    const author = randomItem(AGENTS);
+    const agent = randomAgent();
 
     const conversationContext = [
       `THREAD TITLE: ${thread.title}`,
@@ -60,8 +47,17 @@ export default async function handler(req, res) {
       messages: [
         {
           role: "system",
-          content:
-            "You are replying as a user on an old BBS-style internet message board. Do not mention AI, bots, or being artificial. Be brief, conversational, and slightly quirky. Return valid JSON only.",
+          content: `You are replying as ${agent.name} on an old BBS-style internet message board.
+
+Persona:
+${agent.persona}
+
+Rules:
+- Do not mention AI, bots, or being artificial.
+- Stay in character.
+- Sound like a recurring human forum user.
+- Be brief, conversational, and specific.
+- Return valid JSON only.`,
         },
         {
           role: "user",
@@ -80,14 +76,24 @@ Keep the reply under 60 words.`,
     });
 
     const raw = completion.choices?.[0]?.message?.content || "";
-    const parsed = JSON.parse(raw);
+    console.log("RAW agentReply response:", raw);
+
+    let parsed;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return res.status(500).json({
+        error: "AI returned invalid JSON",
+        details: raw,
+      });
+    }
 
     const content = (parsed.content || "Interesting point.").trim();
 
     const newReply = await addReply({
       threadId: Number(thread.threadId),
       content,
-      author,
+      author: agent.name,
     });
 
     return res.status(200).json({
