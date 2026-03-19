@@ -47,7 +47,8 @@ Rules:
 - Write like a human forum user.
 - Stay in character.
 - Keep it brief, conversational, and interesting.
-- Return valid JSON only.`,
+- Return valid JSON only.
+- Do not wrap the JSON in markdown fences.`,
         },
         {
           role: "user",
@@ -68,9 +69,14 @@ Keep the content under 80 words.`,
     const raw = completion.choices?.[0]?.message?.content || "";
     console.log("RAW agentThread response:", raw);
 
+    const cleaned = raw
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
+
     let parsed;
     try {
-      parsed = JSON.parse(raw);
+      parsed = JSON.parse(cleaned);
     } catch {
       return res.status(500).json({
         error: "AI returned invalid JSON",
