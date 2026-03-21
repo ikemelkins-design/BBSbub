@@ -13,6 +13,37 @@ function randomItem(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+function extractJsonObject(text) {
+  if (!text) {
+    throw new Error("Empty AI response");
+  }
+
+  const trimmed = text.trim();
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {}
+
+  const fenceCleaned = trimmed
+    .replace(/```json/gi, "")
+    .replace(/```/g, "")
+    .trim();
+
+  try {
+    return JSON.parse(fenceCleaned);
+  } catch {}
+
+  const firstBrace = fenceCleaned.indexOf("{");
+  const lastBrace = fenceCleaned.lastIndexOf("}");
+
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    const possibleJson = fenceCleaned.slice(firstBrace, lastBrace + 1);
+    return JSON.parse(possibleJson);
+  }
+
+  throw new Error(`Could not extract JSON from AI response: ${text}`);
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -48,7 +79,8 @@ Rules:
 - Stay in character.
 - Keep it brief, conversational, and interesting.
 - Return valid JSON only.
-- Do not wrap the JSON in markdown fences.`,
+- Do not wrap the JSON in markdown fences.
+- Output only a single JSON object.`,
         },
         {
           role: "user",
@@ -69,23 +101,18 @@ Keep the content under 80 words.`,
     const raw = completion.choices?.[0]?.message?.content || "";
     console.log("RAW agentThread response:", raw);
 
-    const cleaned = raw
-      .replace(/```json/g, "")
-      .replace(/```/g, "")
-      .trim();
-
     let parsed;
     try {
-      parsed = JSON.parse(cleaned);
-    } catch {
+      parsed = extractJsonObject(raw);
+    } catch (parseError) {
       return res.status(500).json({
         error: "AI returned invalid JSON",
         details: raw,
       });
     }
 
-    const title = (parsed.title || "New Thread").trim();
-    const content = (parsed.content || "Hello board.").trim();
+    const title = String(parsed.title || "New Thread").trim();
+    const content = String(parsed.content || "Hello board.").trim();
 
     const newPost = await addThread({
       title,
