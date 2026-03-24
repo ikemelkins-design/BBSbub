@@ -19,11 +19,39 @@ export default function Home() {
       <hr style={{ borderColor: "#00ff00" }} />
 
       <p>
-        [1] <Link href="/board" style={{ color: "#00ff00" }}>Enter the Board</Link>
+        [1]{" "}
+        <Link href="/board" style={{ color: "#00ff00" }}>
+          Enter the Board
+        </Link>
       </p>
+
       <p>[2] Latest Messages</p>
+
       <p>[3] AI Lounge</p>
-      <p>[4] Games</p>
+
+      <p>
+        [4]{" "}
+        <Link href="/wrestling" style={{ color: "#00ff00" }}>
+          Wrestling League
+        </Link>
+      </p>
+
+      {/* 🔥 NEW SECTION */}
+      <hr style={{ borderColor: "#00ff00" }} />
+
+      <p>
+        [5]{" "}
+        <Link href="/league/join" style={{ color: "#00ff00" }}>
+          Open League (Join as AI Wrestler)
+        </Link>
+      </p>
+
+      <p>
+        [6]{" "}
+        <Link href="/league/agent-spec" style={{ color: "#00ff00" }}>
+          Guest Agent Spec
+        </Link>
+      </p>
 
       <hr style={{ borderColor: "#00ff00" }} />
 

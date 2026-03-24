@@ -2,8 +2,7 @@ import { useEffect, useState } from "react";
 
 export default function WrestlingPage() {
   const [wrestlers, setWrestlers] = useState([]);
-  const [log, setLog] = useState([]);
-  const [winner, setWinner] = useState(null);
+  const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState({
@@ -13,331 +12,295 @@ export default function WrestlingPage() {
     speed: 5,
     charisma: 5,
     stamina: 5,
-    finisher: ""
+    hp: 35,
+    finisher: "",
   });
 
-  const [selected1, setSelected1] = useState("");
-  const [selected2, setSelected2] = useState("");
+  async function initializeDb() {
+    await fetch("/api/init");
+  }
 
   async function loadWrestlers() {
-    try {
-      const res = await fetch("/api/wrestling/wrestlers");
-      const data = await res.json();
-      setWrestlers(data.wrestlers || []);
-    } catch (error) {
-      console.error("Failed to load wrestlers:", error);
-    }
+    const res = await fetch("/api/wrestlers");
+    const data = await res.json();
+    setWrestlers(data.wrestlers || []);
+  }
+
+  async function loadMatches() {
+    const res = await fetch("/api/matches");
+    const data = await res.json();
+    setMatches(data.matches || []);
+  }
+
+  async function refreshAll() {
+    await initializeDb();
+    await loadWrestlers();
+    await loadMatches();
   }
 
   useEffect(() => {
-    loadWrestlers();
+    refreshAll();
   }, []);
 
-  function handleChange(e) {
-    const { name, value } = e.target;
-    setForm((prev) => ({
-      ...prev,
-      [name]: value
-    }));
-  }
-
-  async function handleCreateWrestler(e) {
+  async function createWrestler(e) {
     e.preventDefault();
 
-    if (!form.name.trim() || !form.finisher.trim()) {
-      alert("Please enter both a wrestler name and finisher.");
+    const res = await fetch("/api/wrestlers", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(form),
+    });
+
+    const data = await res.json();
+
+    if (data.error) {
+      alert(data.error);
       return;
     }
 
-    try {
-      setLoading(true);
+    setForm({
+      name: "",
+      style: "Brawler",
+      power: 5,
+      speed: 5,
+      charisma: 5,
+      stamina: 5,
+      hp: 35,
+      finisher: "",
+    });
 
-      const res = await fetch("/api/wrestling/create-wrestler", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(form)
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        alert(data.error || "Failed to create wrestler");
-        return;
-      }
-
-      setForm({
-        name: "",
-        style: "Brawler",
-        power: 5,
-        speed: 5,
-        charisma: 5,
-        stamina: 5,
-        finisher: ""
-      });
-
-      await loadWrestlers();
-    } catch (error) {
-      console.error("Create wrestler error:", error);
-      alert("Something went wrong creating the wrestler.");
-    } finally {
-      setLoading(false);
-    }
+    await refreshAll();
   }
 
-  async function handleRunMatch() {
-    if (!selected1 || !selected2) {
-      alert("Please choose two wrestlers.");
-      return;
-    }
-
-    if (selected1 === selected2) {
-      alert("Please choose two different wrestlers.");
-      return;
-    }
+  async function runAiMatch() {
+    setLoading(true);
 
     try {
-      setLoading(true);
-      setLog([]);
-      setWinner(null);
-
-      const res = await fetch("/api/wrestling/run-match", {
+      const res = await fetch("/api/ai-match", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          wrestler1_id: selected1,
-          wrestler2_id: selected2
-        })
       });
 
       const data = await res.json();
 
-      if (!res.ok) {
-        alert(data.error || "Failed to run match");
-        return;
+      if (data.error) {
+        alert(data.error);
+      } else {
+        await refreshAll();
       }
-
-      setLog(data.log || []);
-      setWinner(data.winner || null);
     } catch (error) {
-      console.error("Run match error:", error);
-      alert("Something went wrong running the match.");
-    } finally {
-      setLoading(false);
+      console.error(error);
+      alert("AI match failed");
     }
+
+    setLoading(false);
+  }
+
+  function updateField(field, value) {
+    setForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
   }
 
   return (
     <div
       style={{
-        minHeight: "100vh",
         backgroundColor: "black",
-        color: "#00ff99",
+        color: "#00ff00",
+        minHeight: "100vh",
         fontFamily: "monospace",
-        padding: "20px"
+        padding: "20px",
       }}
     >
       <h1>BBSbub Wrestling Federation</h1>
-      <p>Create wrestlers. Run matches. Build legends.</p>
 
-      <hr style={{ borderColor: "#00ff99", margin: "20px 0" }} />
+      <p>Create wrestlers. Then let the AI run matches.</p>
+
+      <hr style={{ borderColor: "#00ff00" }} />
 
       <h2>Create Wrestler</h2>
 
-      <form onSubmit={handleCreateWrestler} style={{ marginBottom: "30px" }}>
-        <div style={{ marginBottom: "10px" }}>
+      <form onSubmit={createWrestler} style={{ marginBottom: "20px" }}>
+        <p>
+          Name:
+          <br />
           <input
-            type="text"
-            name="name"
-            placeholder="Wrestler name"
             value={form.name}
-            onChange={handleChange}
+            onChange={(e) => updateField("name", e.target.value)}
             style={inputStyle}
           />
-        </div>
+        </p>
 
-        <div style={{ marginBottom: "10px" }}>
-          <input
-            type="text"
-            name="finisher"
-            placeholder="Finisher name"
-            value={form.finisher}
-            onChange={handleChange}
-            style={inputStyle}
-          />
-        </div>
-
-        <div style={{ marginBottom: "10px" }}>
+        <p>
+          Style:
+          <br />
           <select
-            name="style"
             value={form.style}
-            onChange={handleChange}
+            onChange={(e) => updateField("style", e.target.value)}
             style={inputStyle}
           >
-            <option value="Brawler">Brawler</option>
-            <option value="Technician">Technician</option>
-            <option value="High Flyer">High Flyer</option>
-            <option value="Monster">Monster</option>
-            <option value="Heel">Heel</option>
+            <option>Brawler</option>
+            <option>Technician</option>
+            <option>High Flyer</option>
+            <option>Showboat</option>
           </select>
-        </div>
+        </p>
 
-        <div style={{ marginBottom: "10px" }}>
-          <label>Power: </label>
+        <p>
+          Power:
+          <br />
           <input
             type="number"
-            name="power"
+            min="1"
+            max="10"
             value={form.power}
-            onChange={handleChange}
-            min="1"
-            max="10"
-            style={smallInputStyle}
+            onChange={(e) => updateField("power", Number(e.target.value))}
+            style={inputStyle}
           />
-        </div>
+        </p>
 
-        <div style={{ marginBottom: "10px" }}>
-          <label>Speed: </label>
+        <p>
+          Speed:
+          <br />
           <input
             type="number"
-            name="speed"
+            min="1"
+            max="10"
             value={form.speed}
-            onChange={handleChange}
-            min="1"
-            max="10"
-            style={smallInputStyle}
+            onChange={(e) => updateField("speed", Number(e.target.value))}
+            style={inputStyle}
           />
-        </div>
+        </p>
 
-        <div style={{ marginBottom: "10px" }}>
-          <label>Charisma: </label>
+        <p>
+          Charisma:
+          <br />
           <input
             type="number"
-            name="charisma"
+            min="1"
+            max="10"
             value={form.charisma}
-            onChange={handleChange}
-            min="1"
-            max="10"
-            style={smallInputStyle}
+            onChange={(e) => updateField("charisma", Number(e.target.value))}
+            style={inputStyle}
           />
-        </div>
+        </p>
 
-        <div style={{ marginBottom: "10px" }}>
-          <label>Stamina: </label>
+        <p>
+          Stamina:
+          <br />
           <input
             type="number"
-            name="stamina"
-            value={form.stamina}
-            onChange={handleChange}
             min="1"
             max="10"
-            style={smallInputStyle}
+            value={form.stamina}
+            onChange={(e) => updateField("stamina", Number(e.target.value))}
+            style={inputStyle}
           />
-        </div>
+        </p>
 
-        <button type="submit" style={buttonStyle} disabled={loading}>
-          {loading ? "Working..." : "Create Wrestler"}
+        <p>
+          HP:
+          <br />
+          <input
+            type="number"
+            min="20"
+            max="50"
+            value={form.hp}
+            onChange={(e) => updateField("hp", Number(e.target.value))}
+            style={inputStyle}
+          />
+        </p>
+
+        <p>
+          Finisher:
+          <br />
+          <input
+            value={form.finisher}
+            onChange={(e) => updateField("finisher", e.target.value)}
+            style={inputStyle}
+          />
+        </p>
+
+        <button type="submit" style={buttonStyle}>
+          Create Wrestler
         </button>
       </form>
 
-      <hr style={{ borderColor: "#00ff99", margin: "20px 0" }} />
+      <button onClick={runAiMatch} style={buttonStyle} disabled={loading}>
+        {loading ? "Running Match..." : "Run AI Match"}
+      </button>
+
+      <hr style={{ borderColor: "#00ff00", marginTop: "20px" }} />
 
       <h2>Roster</h2>
 
       {wrestlers.length === 0 ? (
         <p>No wrestlers yet.</p>
       ) : (
-        <ul>
-          {wrestlers.map((wrestler) => (
-            <li key={wrestler.id} style={{ marginBottom: "8px" }}>
-              #{wrestler.id} {wrestler.name} | {wrestler.style} | POW {wrestler.power} | SPD {wrestler.speed} | CHA {wrestler.charisma} | STA {wrestler.stamina} | HP {wrestler.hp} | FINISHER: {wrestler.finisher}
-            </li>
-          ))}
-        </ul>
+        wrestlers.map((w) => (
+          <div
+            key={w.id}
+            style={{
+              border: "1px solid #00ff00",
+              padding: "10px",
+              marginBottom: "10px",
+            }}
+          >
+            <strong>{w.name}</strong> {w.is_ai ? "[AI]" : "[USER]"}
+            <br />
+            Style: {w.style}
+            <br />
+            Power: {w.power} | Speed: {w.speed} | Charisma: {w.charisma} | Stamina: {w.stamina} | HP: {w.hp}
+            <br />
+            Finisher: {w.finisher}
+          </div>
+        ))
       )}
 
-      <hr style={{ borderColor: "#00ff99", margin: "20px 0" }} />
+      <hr style={{ borderColor: "#00ff00" }} />
 
-      <h2>Run Match</h2>
+      <h2>Recent Matches</h2>
 
-      <div style={{ marginBottom: "10px" }}>
-        <select
-          value={selected1}
-          onChange={(e) => setSelected1(e.target.value)}
-          style={inputStyle}
-        >
-          <option value="">Choose Wrestler 1</option>
-          {wrestlers.map((wrestler) => (
-            <option key={wrestler.id} value={wrestler.id}>
-              {wrestler.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div style={{ marginBottom: "10px" }}>
-        <select
-          value={selected2}
-          onChange={(e) => setSelected2(e.target.value)}
-          style={inputStyle}
-        >
-          <option value="">Choose Wrestler 2</option>
-          {wrestlers.map((wrestler) => (
-            <option key={wrestler.id} value={wrestler.id}>
-              {wrestler.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <button onClick={handleRunMatch} style={buttonStyle} disabled={loading}>
-        {loading ? "Working..." : "Run Match"}
-      </button>
-
-      <hr style={{ borderColor: "#00ff99", margin: "20px 0" }} />
-
-      <h2>Match Log</h2>
-
-      {winner && <p>Winner: {winner.name}</p>}
-
-      <pre
-        style={{
-          whiteSpace: "pre-wrap",
-          backgroundColor: "#111",
-          border: "1px solid #00ff99",
-          padding: "15px",
-          minHeight: "200px"
-        }}
-      >
-        {log.length > 0 ? log.join("\n") : "No match run yet."}
-      </pre>
+      {matches.length === 0 ? (
+        <p>No matches yet.</p>
+      ) : (
+        matches.map((m) => (
+          <div
+            key={m.id}
+            style={{
+              border: "1px solid #00ff00",
+              padding: "10px",
+              marginBottom: "10px",
+            }}
+          >
+            <strong>
+              {m.wrestler1_name} vs. {m.wrestler2_name}
+            </strong>
+            <br />
+            Winner: {m.winner_name || "Unknown"}
+            <br />
+            {m.result_text}
+          </div>
+        ))
+      )}
     </div>
   );
 }
 
 const inputStyle = {
   backgroundColor: "black",
-  color: "#00ff99",
-  border: "1px solid #00ff99",
-  padding: "8px",
-  width: "300px"
-};
-
-const smallInputStyle = {
-  backgroundColor: "black",
-  color: "#00ff99",
-  border: "1px solid #00ff99",
-  padding: "8px",
-  width: "80px",
-  marginLeft: "10px"
+  color: "#00ff00",
+  border: "1px solid #00ff00",
+  padding: "6px",
+  width: "250px",
 };
 
 const buttonStyle = {
   backgroundColor: "black",
-  color: "#00ff99",
-  border: "1px solid #00ff99",
-  padding: "10px 16px",
-  cursor: "pointer"
+  color: "#00ff00",
+  border: "1px solid #00ff00",
+  padding: "8px 12px",
+  cursor: "pointer",
 };
